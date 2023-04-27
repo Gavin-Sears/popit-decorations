@@ -81,14 +81,14 @@ endif()
 include_directories(${INCLUDE_DIRS})
 link_directories(${LIBRARY_DIRS})
 
-file(GLOB SOURCES "src/agl/*.h" "src/agl/*.cpp" "src/agl/mesh/*.h" "src/agl/mesh/*.cpp") 
+file(GLOB SOURCES "src/agl/*.h" "src/agl/*.cpp" "src/agl/mesh/*.h" "src/agl/mesh/*.cpp" "src/*.cpp") 
 
 set(SHADERS
     shaders/unlit.vs
     shaders/unlit.fs
     )
 
-add_executable(demo src/demo.cpp ${SOURCES} ${SHADERS})
+add_executable(demo ${SOURCES} ${SHADERS})
 target_link_libraries(demo ${CORE})
 
 if (WIN32)
