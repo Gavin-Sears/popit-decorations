@@ -12,8 +12,21 @@ using namespace std;
 using namespace glm;
 using namespace agl;
 
+/*
+* Decorators store information for a placed decoration. 
+* Not all info is needed depending on where it is used:
+*
+* isModel - whether the decoration is a custom mesh, or a built in function
+* ply - the name of the mesh or shape of the decoration
+* pos - position of decoration
+* rot - x, y, and z euler angles respectively
+* scale - uniform scale
+* min/max - used for boxes, provides intersection info by using minimum and maximum corners
+* color - decoration color
+*/
 struct decorator
 {
+  // Needed for all decorations
   bool isModel;
   string ply;
 
@@ -22,13 +35,18 @@ struct decorator
   float roty;
   float rotz;
   vec3 scale;
+  vec3 color;
 
+  // Only needed for box intersection
   vec3 min;
   vec3 max;
-
-  vec3 color;
 };
 
+/* 
+* Info for a given box intersection. Could be given greater efficiency 
+* by calculating position after we find the correct intersection, 
+* but no performance issues have occured, and this feature could be used for other things.
+*/
 struct sect
 {
   vec3 pos;
@@ -46,12 +64,14 @@ public:
   void setup() {
     setWindowSize(_width, _height);
 
-  
+    // Load all meshes to respective variables
     _eyeMesh.load("../models/eye.ply");
     _hornMesh.load("../models/horn.ply");
     _duckMesh.load("../models/rubberDucky.ply");
     _noseMesh.load("../models/nose.ply");
     _mouthMesh.load("../models/mouth.ply");
+
+    // Put strings in vector corresponding to meshes (DETERMINES ORDER)
     _meshes.push_back("eye");
     _meshes.push_back("horn");
     _meshes.push_back("nose");
@@ -59,15 +79,17 @@ public:
     _meshes.push_back("mouth");
     _meshes.push_back("cube");
 
-    
+    // Loading textures for respective meshes
     renderer.loadTexture("eye", "../textures/eye.png", 0);
     renderer.loadTexture("horn", "../textures/horn.png", 0);
     renderer.loadTexture("mouth", "../textures/mouth.png", 0);
     renderer.loadTexture("duck", "../textures/duck_texture.png", 0);
 
+    // Loading the shader
     renderer.loadShader("phong-pixel", "../shaders/phong-pixel.vs", "../shaders/phong-pixel.fs");
   }
 
+  // Takes screen position, returns world position
   vec3 screenToWorld(const vec2& screen)
   {
     vec4 screenpos = vec4(screen, 1, 1);
@@ -92,6 +114,7 @@ public:
     return vec3(worldpos);
   }
 
+  // Raycasts from mouse pos, returns true if given sphere intersects
   bool sphereIntersection(const vec3& ro, const vec3& rd, const vec3& center, float radius)
   {
     vec3 el = center - ro;
@@ -108,6 +131,7 @@ public:
     return true;
   }
 
+  // Raycasts from mouse pos, returns intersection info if plane intersects
   sect planeIntersection(const vec3& ro, const vec3& rd, const vec3& point, const vec3& nd)
   {
     float t;
@@ -139,6 +163,7 @@ public:
     }
   }
 
+  // Uses plane intersection to calculate info about a potential intersectionn with a cube
   sect cubeIntersection(const vec3& ro, const vec3& rd, const vec3& min, const vec3& max)
   {
     // Here are our intersection points
@@ -287,11 +312,12 @@ public:
     return tmin;
   }
 
+
   void mouseMotion(int x, int y, int dx, int dy) {
     vec2 mousePos = mousePosition();
     vec3 worldPos = screenToWorld(mousePos);
     vec3 rayDir = normalize(worldPos - _eyePos);
-    sect p = cubeIntersection(_eyePos, rayDir, _min2, _max2);
+    sect p = cubeIntersection(_eyePos, rayDir, _minOrig, _maxOrig);
     sect q;
     decorator c;
     sect mint;
@@ -312,7 +338,7 @@ public:
       p = mint;
     }
 
-    _show3 = p.hit;
+    _showPrev = p.hit;
     vec3 newPos = vec3(
       p.pos.x,
       p.pos.y,
@@ -320,48 +346,47 @@ public:
     );
     if (p.hit)
     {
-      _pos3 = newPos;
-      _norm3 = p.norm;
-      if (_isModel3)
+      _posPrev = newPos;
+      _normPrev = p.norm;
+      if (_isModelPrev)
       {
         // Setting rotation of preview mesh, will be set for decorators
-        if (_norm3.z < -0.5)
+        if (_normPrev.z < -0.5)
         {
-          _rotz3 = - atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x);
+          _rotzPrev = - atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x);
         }
         else
         {
-          _rotz3 = atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x);
+          _rotzPrev = atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x);
         }
 
-        if (_norm3.x < -0.5)
+        if (_normPrev.x < -0.5)
         {
-          _rotx3 = - atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x) + M_PI_2;
+          _rotxPrev = - atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x) + M_PI_2;
         }
         else
         {
-          _rotx3 = atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x) - M_PI_2;
+          _rotxPrev = atan2(sqrt(pow(p.norm.y, 2) + pow(p.norm.z, 2)), p.norm.x) - M_PI_2;
         }
 
-        if (_norm3.y > 0.5)
+        if (_normPrev.y > 0.5)
         {
-          _rotz3 = 0.0;
-          _rotx3 = 0.0;
+          _rotzPrev = 0.0;
+          _rotxPrev = 0.0;
         }
-        else if (_norm3.y < -0.5)
+        else if (_normPrev.y < -0.5)
         {
-          _rotz3 = M_PI;
-          _rotx3 = 0.0;
+          _rotzPrev = M_PI;
+          _rotxPrev = 0.0;
         }
       }
       else
       {
-        _rotx3 = 0.0f;
-        _roty3 = 0.0f;
-        _rotz3 = 0.0f;
+        _rotxPrev = 0.0f;
+        _rotzPrev = 0.0f;
+        _rotyPrev = 0.0f;
       }
-
-      _selected2 = true;
+      
     }
   }
 
@@ -369,14 +394,14 @@ public:
 
     decorator thing;
 
-    thing.pos = _pos3;
-    thing.rotx = _rotx3;
-    thing.rotz = _rotz3;
-    thing.roty = _roty3;
+    thing.pos = _posPrev;
+    thing.rotx = _rotxPrev;
+    thing.rotz = _rotzPrev;
+    thing.roty = _rotyPrev;
     
-    thing.scale = _scale3;
-    thing.color = _color3;
-    thing.ply = _mesh3;
+    thing.scale = _scalePrev;
+    thing.color = _colorPrev;
+    thing.ply = _meshPrev;
     thing.max = vec3(
         thing.pos.x + (thing.scale.x / 2.0f),
         thing.pos.y + (thing.scale.y / 2.0f),
@@ -388,9 +413,9 @@ public:
         thing.pos.z - (thing.scale.z / 2.0f)
     );
 
-    if (_show3) 
+    if (_showPrev) 
     {
-      if(!_isModel3)
+      if(!_isModelPrev)
       {
         _cubes.push_back(thing);
       }
@@ -524,79 +549,81 @@ public:
     }
   }
 
+  // Function that updates things that require updating while a key is down to create gradual effects
   void srotcol()
   {
     if (wDown)
     {
-      _scale3 = vec3(
-        _scale3.x + 0.005f,
-        _scale3.y + 0.005f,
-        _scale3.z + 0.005f
+      _scalePrev = vec3(
+        _scalePrev.x + 0.005f,
+        _scalePrev.y + 0.005f,
+        _scalePrev.z + 0.005f
       );
     }
     else if (sDown)
     {
-      if (_scale3.x >= 0.1f)
+      if (_scalePrev.x >= 0.1f)
       {
-        _scale3 = vec3(
-          _scale3.x - 0.005f,
-          _scale3.y - 0.005f,
-          _scale3.z - 0.005f
+        _scalePrev = vec3(
+          _scalePrev.x - 0.005f,
+          _scalePrev.y - 0.005f,
+          _scalePrev.z - 0.005f
         );
       }
     }
     if (aDown)
     {
-      if (_isModel3)
-      _roty3 = _roty3 + 0.02f;
+      if (_isModelPrev)
+      _rotyPrev = _rotyPrev + 0.02f;
     }
     else if (dDown)
     {
-      if (_isModel3)
-      _roty3 = _roty3 - 0.02f;
+      if (_isModelPrev)
+      _rotyPrev = _rotyPrev - 0.02f;
     }
     if (rDown)
     {
-      _color3 = vec3(
-        std::min((_color3.r + 0.02f), 1.0f),
-        _color3.g,
-        _color3.b
+      _colorPrev = vec3(
+        std::min((_colorPrev.r + 0.02f), 1.0f),
+        _colorPrev.g,
+        _colorPrev.b
       );
     }
     else if (gDown)
     {
-      _color3 = vec3(
-        _color3.r,
-        std::min((_color3.g + 0.02f), 1.0f),
-        _color3.b
+      _colorPrev = vec3(
+        _colorPrev.r,
+        std::min((_colorPrev.g + 0.02f), 1.0f),
+        _colorPrev.b
       );
     }
     else if (bDown)
     {
-      _color3 = vec3(
-        _color3.r,
-        _color3.g,
-        std::min((_color3.b + 0.02f), 1.0f)
+      _colorPrev = vec3(
+        _colorPrev.r,
+        _colorPrev.g,
+        std::min((_colorPrev.b + 0.02f), 1.0f)
       );
     }
     if (iDown)
     {
-      _color3 = vec3(
-        std::min((_color3.r + 0.02f), 1.0f),
-        std::min((_color3.g + 0.02f), 1.0f),
-        std::min((_color3.b + 0.02f), 1.0f)
+      _colorPrev = vec3(
+        std::min((_colorPrev.r + 0.02f), 1.0f),
+        std::min((_colorPrev.g + 0.02f), 1.0f),
+        std::min((_colorPrev.b + 0.02f), 1.0f)
       );
     }
     else if (kDown)
     {
-      _color3 = vec3(
-        std::max((_color3.r - 0.02f), 0.0f),
-        std::max((_color3.g - 0.02f), 0.0f),
-        std::max((_color3.b - 0.02f), 0.0f)
+      _colorPrev = vec3(
+        std::max((_colorPrev.r - 0.02f), 0.0f),
+        std::max((_colorPrev.g - 0.02f), 0.0f),
+        std::max((_colorPrev.b - 0.02f), 0.0f)
       );
     }
   }
 
+  // Function drawing non-cube decorations
   void drawDecorators()
   {
     for (int i = 0; i < _decorators.size(); i++)
@@ -632,8 +659,8 @@ public:
 
       renderer.translate(dec.pos);
       renderer.rotate(dec.rotx, vec3(0.0, 0.0, 1.0));
-      renderer.rotate(dec.rotz, vec3(1.0, 0.0, 0.0));
       renderer.rotate(dec.roty, vec3(0.0, 1.0, 0.0));
+      renderer.rotate(dec.rotz, vec3(1.0, 0.0, 0.0));
       renderer.scale(dec.scale);
       if (dec.ply == "eye")
       {
@@ -661,6 +688,7 @@ public:
 
   }
 
+  // Function drawing new cubes
   void drawCubes()
   {
     for (int i = 0; i < _cubes.size(); i++)
@@ -679,56 +707,63 @@ public:
 
   void draw() 
   {
-    _mesh3 = _meshes[_curOption];
-    if (_mesh3 == "cube")
+    // Makes sure if we have a mesh or not
+    _meshPrev = _meshes[_curOption];
+    if (_meshPrev == "cube")
     {
-      _isModel3 = false;
+      _isModelPrev = false;
     }
     else
-    _isModel3 = true;
+    _isModelPrev = true;
 
+    // control update
     srotcol();
+
+    // starts with a shader and no texture
     renderer.beginShader("phong-pixel");
     renderer.setUniform("text", false);
 
     // renderer.setUniform() to set values in shader
 
+    // Currently hard-set perspective since mac width and height is wrong
     float aspect = ((float)width()) / height();
     renderer.perspective(glm::radians(60.0f), 1, 0.5f, 10);
+
     renderer.lookAt(_eyePos, lookPos, up);
 
+    // sets color to white for origin cube
     renderer.setUniform("diffuseColor", vec4(1,1,1,1));
     renderer.identity();
     renderer.setUniform("text", false);
-    renderer.translate(_pos2);
+    renderer.translate(_posOrig);
     renderer.cube();
 
 
 
     // The preview mesh
-    renderer.setUniform("diffuseColor", vec4(_color3, 0.5));
+    renderer.setUniform("diffuseColor", vec4(_colorPrev, 0.5));
     renderer.identity();
-    renderer.translate(_pos3);
-    renderer.rotate(_rotx3, vec3(0.0, 0.0, 1.0));
-    renderer.rotate(_rotz3, vec3(1.0, 0.0, 0.0));
-    renderer.rotate(_roty3, vec3(0.0, 1.0, 0.0));
-    renderer.scale(_scale3);
-    if (_show3)
+    renderer.translate(_posPrev);
+    renderer.rotate(_rotxPrev, vec3(0.0, 0.0, 1.0));
+    renderer.rotate(_rotzPrev, vec3(1.0, 0.0, 0.0));
+    renderer.rotate(_rotyPrev, vec3(0.0, 1.0, 0.0));
+    renderer.scale(_scalePrev);
+    if (_showPrev)
     {
       renderer.setUniform("text", true);
-      if (_mesh3 == "eye")
+      if (_meshPrev == "eye")
       {
         renderer.texture("Image", "eye");
       }
-      else if (_mesh3 == "horn")
+      else if (_meshPrev == "horn")
       {
         renderer.texture("Image", "horn");
       }
-      else if(_mesh3 == "duck")
+      else if(_meshPrev == "duck")
       {
         renderer.texture("Image", "duck");
       }
-      else if (_mesh3 == "mouth")
+      else if (_meshPrev == "mouth")
       {
         renderer.texture("Image", "mouth");
       }
@@ -738,23 +773,23 @@ public:
       }
 
       renderer.push();
-      if (_mesh3 == "eye")
+      if (_meshPrev == "eye")
       {
         renderer.mesh(_eyeMesh);
       }
-      else if (_mesh3 == "horn")
+      else if (_meshPrev == "horn")
       {
         renderer.mesh(_hornMesh);
       }
-      else if (_mesh3 == "nose")
+      else if (_meshPrev == "nose")
       {
         renderer.mesh(_noseMesh);
       }
-      else if (_mesh3 == "duck")
+      else if (_meshPrev == "duck")
       {
         renderer.mesh(_duckMesh);
       }
-      else if (_mesh3 == "mouth")
+      else if (_meshPrev == "mouth")
       {
         renderer.mesh(_mouthMesh);
       }
@@ -798,37 +833,32 @@ protected:
   int _height = 1000;
   int _width = 1000;
 
-  // object one is a plane
-  vec3 _pos1 = vec3(-1, -0.5, 0);
-  // object two is an object you can decorate
-  vec3 _pos2 = vec3(0, 0, 0);
-  vec3 _scale2 = vec3(1.0f, 1.0f, 1.0f);
-  vec3 _max2 = vec3((_pos2.x + (_scale2.x / 2.0f)), 
-                    (_pos2.y + (_scale2.y / 2.0f)), 
-                    (_pos2.z + (_scale2.z / 2.0f)));
-  vec3 _min2 = vec3((_pos2.x - (_scale2.x / 2.0f)), 
-                    (_pos2.y - (_scale2.y / 2.0f)), 
-                    (_pos2.z - (_scale2.z / 2.0f)));
-  // object 3 is the decoration preview
-  vec3 _pos3;
-  vec3 _scale3 = vec3(0.1f, 0.1f, 0.1f);
-  float _rotx3 = 0.0f;
-  float _rotz3 = 0.0f;
-  float _roty3 = 0.0f;
-  vec3 _norm3;
-  bool _show3;
-  vec3 _color3 = vec3(0.0f, 0.0f, 0.0f);
-  string _mesh3;
-  bool _isModel3;
+  // Origin cube info
+  vec3 _posOrig = vec3(0, 0, 0);
+  vec3 _scaleOrig = vec3(1.0f, 1.0f, 1.0f);
+  vec3 _maxOrig = vec3((_posOrig.x + (_scaleOrig.x / 2.0f)), 
+                    (_posOrig.y + (_scaleOrig.y / 2.0f)), 
+                    (_posOrig.z + (_scaleOrig.z / 2.0f)));
+  vec3 _minOrig = vec3((_posOrig.x - (_scaleOrig.x / 2.0f)), 
+                    (_posOrig.y - (_scaleOrig.y / 2.0f)), 
+                    (_posOrig.z - (_scaleOrig.z / 2.0f)));
+  // Preview decoration info
+  vec3 _posPrev;
+  vec3 _scalePrev = vec3(0.1f, 0.1f, 0.1f);
+  float _rotxPrev = 0.0f;
+  float _rotzPrev = 0.0f;
+  float _rotyPrev = 0.0f;
+  vec3 _normPrev;
+  bool _showPrev;
+  vec3 _colorPrev = vec3(0.0f, 0.0f, 0.0f);
+  string _meshPrev;
+  bool _isModelPrev;
 
-  bool _selected1 = false;
-  bool _selected2 = false;
-
-  decorator eye;
-  decorator cube;
-
+  // vectors of decorators and new cubes
   std::vector<decorator> _decorators;
   std::vector<decorator> _cubes;
+
+  // vector of mesh names. Determines order of meshes when pressing e
   std::vector<string> _meshes;
 
   int _curOption = 0;
