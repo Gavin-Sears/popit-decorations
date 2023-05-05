@@ -58,10 +58,12 @@ struct sect
 class Viewer : public Window {
 public:
 
-  Viewer() : Window() {
+  Viewer() : Window() 
+  {
   }
 
-  void setup() {
+  void setup() 
+  {
     setWindowSize(_width, _height);
 
     // Load all meshes to respective variables
@@ -94,7 +96,7 @@ public:
   {
     vec4 screenpos = vec4(screen, 1, 1);
 
-    // flip y coordinate because positive Y goes doen instead of up
+    // flip y coordinate because positive Y goes down instead of up
     screenpos.y = _height - screenpos.y;
 
     // convert to canonical view coordinates
@@ -313,7 +315,8 @@ public:
   }
 
 
-  void mouseMotion(int x, int y, int dx, int dy) {
+  void mouseMotion(int x, int y, int dx, int dy) 
+  {
     vec2 mousePos = mousePosition();
     vec3 worldPos = screenToWorld(mousePos);
     vec3 rayDir = normalize(worldPos - _eyePos);
@@ -390,7 +393,8 @@ public:
     }
   }
 
-  void mouseDown(int button, int mods) {
+  void mouseDown(int button, int mods) 
+  {
 
     decorator thing;
 
@@ -427,10 +431,12 @@ public:
     }
   }
 
-  void mouseUp(int button, int mods) {
+  void mouseUp(int button, int mods) 
+  {
   }
 
-  void scroll(float dx, float dy) {
+  void scroll(float dx, float dy) 
+  {
 
     if (keyIsDown(GLFW_KEY_LEFT_CONTROL))
     {
